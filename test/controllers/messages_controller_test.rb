@@ -15,6 +15,44 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     Rails.application.config.x.local_auth.enabled = @original_local_auth_enabled
   end
 
+  test 'admin message folders and details keep the member dashboard navigation' do
+    sign_in_as_local_admin
+    admin = User.by_email(local_accounts(:active_admin).email).first!
+    message = Message.create!(sender: @sender, recipient: admin, subject: 'Hello', body: 'Message body')
+
+    Message::FOLDERS.each do |folder|
+      get messages_path(folder: folder)
+      assert_response :success
+      assert_select 'a.nav-link.active', text: /Member Dashboard/
+      assert_select 'a.nav-link.active[href=?]', messages_path(folder: :unread), text: /Messages/
+      assert_select 'a.nav-link[href=?]', root_path(tab: :profile), text: /Profile/
+    end
+    get message_path(message)
+    assert_response :success
+    assert_select 'a.nav-link.active', text: /Member Dashboard/
+    assert_select 'a.nav-link.active[href=?]', messages_path(folder: :unread), text: /Messages/
+  end
+
+  test 'member can open and delete a message while keeping the profile navigation' do
+    member = member_user_for_local
+    message = Message.create!(sender: @sender, recipient: member, subject: 'Hello member', body: 'Message body')
+    sign_in_as_local_member
+    get user_path(member, tab: :messages)
+    assert_redirected_to messages_path(folder: :unread)
+    follow_redirect!
+    assert_select 'a.nav-link.active', text: /Messages/
+    assert_select 'a.nav-link[href=?]', user_path(member, tab: :profile), text: 'Profile'
+
+    get message_path(message, folder: :unread)
+    assert_response :success
+    assert_select 'a.nav-link.active', text: /Messages/
+    delete message_path(message, return_folder: :unread)
+    follow_redirect!
+    assert_response :success
+    assert_select 'a.nav-link.active', text: /Messages/
+    assert_select 'a.nav-link[href=?]', user_path(member, tab: :notifications), text: 'Notifications'
+  end
+
   # ─── Create: admin sending (existing behavior) ───────────────────
 
   test 'admin can send a message' do
