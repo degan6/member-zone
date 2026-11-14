@@ -41,7 +41,7 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to messages_path(folder: :unread)
     follow_redirect!
     assert_select 'a.nav-link.active', text: /Messages/
-    assert_select 'a.nav-link[href=?]', user_path(member, tab: :profile), text: 'Profile'
+    assert_select 'a.nav-link[href=?]', user_path(member, tab: :profile, view_as: :self), text: 'Profile'
 
     get message_path(message, folder: :unread)
     assert_response :success
@@ -50,7 +50,37 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :success
     assert_select 'a.nav-link.active', text: /Messages/
-    assert_select 'a.nav-link[href=?]', user_path(member, tab: :notifications), text: 'Notifications'
+    assert_select 'a.nav-link[href=?]', user_path(member, tab: :notifications, view_as: :self), text: 'Notifications'
+  end
+
+  test 'opening the last unread message clears the member navigation count' do
+    member = member_user_for_local
+    member.received_messages.update_all(read_at: Time.current)
+    message = Message.create!(sender: @sender, recipient: member, subject: 'Unread', body: '.')
+    sign_in_as_local_member
+
+    get message_path(message)
+
+    assert_response :success
+    assert_not message.reload.unread?
+    assert_select 'a.nav-link.active[href=?] span', messages_path(folder: :unread), count: 0
+  end
+
+  test 'staff without dashboard access can open notification preferences from messages' do
+    member = member_user_for_local
+    grant_privileges(member, 'members.view_profile')
+    sign_in_as_local_member
+
+    get messages_path
+    assert_response :success
+    notifications_path = user_path(member, tab: :notifications, view_as: :self)
+    assert_select 'a.nav-link[href=?]', notifications_path, text: 'Notifications'
+    assert_select 'a.nav-link[href=?]', user_path(member, tab: :profile, view_as: :self), text: 'Profile'
+
+    get notifications_path
+    assert_response :success
+    assert_select 'h1', text: 'Notifications'
+    assert_select 'form[action=?]', notification_preferences_path
   end
 
   # ─── Create: admin sending (existing behavior) ───────────────────

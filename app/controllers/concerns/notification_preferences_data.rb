@@ -10,12 +10,5 @@ module NotificationPreferencesData
     end
     @highlight_category = params[:highlight].presence
     @highlight_entry = NotificationCategory.find(@highlight_category) if @highlight_category.present?
-    @optional_opt_out_count = count_optional_opt_outs
-  end
-
-  def count_optional_opt_outs
-    NotificationOptOut.where(user: @subject_user).count do |row|
-      NotificationCategory.opt_out_allowed?(row.category)
-    end
   end
 end

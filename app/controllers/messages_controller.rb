@@ -1,7 +1,7 @@
 class MessagesController < AuthenticatedController
   include TrainingHistoryData
 
-  before_action :prepare_member_navigation, only: %i[index show]
+  before_action :prepare_member_navigation, only: :index
   before_action :load_message, only: %i[show destroy mark_unread restore]
 
   rescue_from ActiveRecord::RecordNotFound, with: :message_not_found
@@ -19,6 +19,7 @@ class MessagesController < AuthenticatedController
       @message.read!
     end
     @return_folder = sanitized_folder(params[:folder])
+    prepare_member_navigation
   end
 
   def create
